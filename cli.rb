@@ -9,6 +9,9 @@
 #   ruby cli.rb dns:set domain.com records.json  # Set DNS records (replaces all!)
 #   ruby cli.rb dns:vercel domain.com            # Point domain to Vercel
 #   ruby cli.rb pricing com                      # Get pricing for a TLD
+#   ruby cli.rb transfer domain.com EPP_CODE     # Submit a domain transfer
+#   ruby cli.rb transfer:status TRANSFER_ID      # Check transfer status
+#   ruby cli.rb transfer:list [LIST_TYPE]        # List transfers
 
 require_relative "namecheap"
 require "json"
@@ -102,6 +105,38 @@ when "dns:vercel"
     puts "  #{r[:type].ljust(8)} #{r[:hostname].ljust(25)} → #{r[:address]}  TTL:#{r[:ttl]}"
   end
 
+when "transfer"
+  domain = ARGV.shift
+  epp_code = ARGV.shift
+  abort "Usage: namecheap-cli transfer DOMAIN EPP_CODE" unless domain && epp_code
+
+  puts "Submitting transfer for #{domain}..."
+  result = nc.transfer_create(domain, epp_code)
+  if result[:transfer]
+    puts "✅ Transfer submitted for #{result[:domain]}"
+    puts "   Transfer ID: #{result[:transfer_id]}"
+    puts "   Order ID: #{result[:order_id]}"
+    puts "   Charged: $#{result[:charged]}"
+  else
+    puts "❌ Transfer failed"
+    puts result.inspect
+  end
+
+when "transfer:status"
+  transfer_id = ARGV.shift
+  abort "Usage: namecheap-cli transfer:status TRANSFER_ID" unless transfer_id
+
+  result = nc.transfer_get_status(transfer_id)
+  puts JSON.pretty_generate(result)
+
+when "transfer:list"
+  list_type = ARGV.shift  # optional: ALL, INPROGRESS, CANCELLED, COMPLETED
+  opts = {}
+  opts[:list_type] = list_type if list_type
+
+  transfers = nc.transfer_get_list(**opts)
+  puts JSON.pretty_generate(transfers)
+
 when "pricing"
   tld = ARGV.shift || "com"
   puts "Pricing for .#{tld}:"
@@ -115,13 +150,16 @@ when nil, "help", "--help", "-h"
     Namecheap CLI
 
     Usage:
-      ruby cli.rb domains                          List all domains
-      ruby cli.rb check domain1.com domain2.com    Check availability
-      ruby cli.rb register domain.com [years]      Register a domain
-      ruby cli.rb dns domain.com                   Show DNS records
-      ruby cli.rb dns:set domain.com records.json  Set DNS records (replaces all!)
-      ruby cli.rb dns:vercel domain.com            Point domain to Vercel (A + CNAME)
-      ruby cli.rb pricing [tld]                    Get pricing for a TLD
+      namecheap-cli domains                          List all domains
+      namecheap-cli check domain1.com domain2.com    Check availability
+      namecheap-cli register domain.com [years]      Register a domain
+      namecheap-cli dns domain.com                   Show DNS records
+      namecheap-cli dns:set domain.com records.json  Set DNS records (replaces all!)
+      namecheap-cli dns:vercel domain.com            Point domain to Vercel (A + CNAME)
+      namecheap-cli pricing [tld]                    Get pricing for a TLD
+      namecheap-cli transfer DOMAIN EPP_CODE         Submit a domain transfer
+      namecheap-cli transfer:status TRANSFER_ID      Check transfer status
+      namecheap-cli transfer:list [LIST_TYPE]         List transfers (ALL|INPROGRESS|CANCELLED|COMPLETED)
 
     Environment:
       NAMECHEAP_API_KEY       API key from namecheap.com

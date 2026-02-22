@@ -43,6 +43,18 @@ ruby cli.rb dns:set selfdrivingdfw.com records.json
 
 # Get pricing for a TLD
 ruby cli.rb pricing com
+
+# Submit a domain transfer (requires EPP/auth code from current registrar)
+ruby cli.rb transfer example.com YOUR_EPP_CODE
+
+# Check transfer status
+ruby cli.rb transfer:status 12345
+
+# List all transfers
+ruby cli.rb transfer:list
+
+# List only in-progress transfers
+ruby cli.rb transfer:list INPROGRESS
 ```
 
 ## Ruby API
@@ -67,4 +79,9 @@ nc.set_dns_records("example.com", [
   { hostname: "@", type: "A", address: "1.2.3.4", ttl: "1800" },
 ])
 nc.set_nameservers("example.com", ["ns1.example.com", "ns2.example.com"])
+
+# Transfer
+nc.transfer_create("example.com", "EPP_CODE_HERE", years: 1)
+nc.transfer_get_status(12345)
+nc.transfer_get_list(list_type: "INPROGRESS")
 ```

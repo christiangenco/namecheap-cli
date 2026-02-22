@@ -206,6 +206,116 @@ class Namecheap
     api_call("namecheap.domains.dns.setHosts", params)
   end
 
+  # Submit a domain transfer request.
+  # Requires an EPP/auth code from the current registrar.
+  # Returns: { domain:, transfer:, transfer_id:, status_id:, order_id:, transaction_id:, charged:, status_code: }
+  def transfer_create(domain, epp_code, years: 1)
+    params = {
+      "DomainName" => domain,
+      "Years" => years.to_s,
+      "EPPCode" => epp_code,
+      "AddFreeWhoisguard" => "yes",
+      "WGEnabled" => "yes",
+      # Registrant info
+      "RegistrantFirstName" => ENV.fetch("NAMECHEAP_FIRST_NAME", "Christian"),
+      "RegistrantLastName" => ENV.fetch("NAMECHEAP_LAST_NAME", "Genco"),
+      "RegistrantAddress1" => ENV.fetch("NAMECHEAP_ADDRESS", "2028 E Ben White Blvd #240-8529"),
+      "RegistrantCity" => ENV.fetch("NAMECHEAP_CITY", "Austin"),
+      "RegistrantStateProvince" => ENV.fetch("NAMECHEAP_STATE", "TX"),
+      "RegistrantPostalCode" => ENV.fetch("NAMECHEAP_ZIP", "78741"),
+      "RegistrantCountry" => ENV.fetch("NAMECHEAP_COUNTRY", "US"),
+      "RegistrantPhone" => ENV.fetch("NAMECHEAP_PHONE", "+1.5555555555"),
+      "RegistrantEmailAddress" => ENV.fetch("NAMECHEAP_EMAIL", "christian@gen.co"),
+      # Tech contact
+      "TechFirstName" => ENV.fetch("NAMECHEAP_FIRST_NAME", "Christian"),
+      "TechLastName" => ENV.fetch("NAMECHEAP_LAST_NAME", "Genco"),
+      "TechAddress1" => ENV.fetch("NAMECHEAP_ADDRESS", "2028 E Ben White Blvd #240-8529"),
+      "TechCity" => ENV.fetch("NAMECHEAP_CITY", "Austin"),
+      "TechStateProvince" => ENV.fetch("NAMECHEAP_STATE", "TX"),
+      "TechPostalCode" => ENV.fetch("NAMECHEAP_ZIP", "78741"),
+      "TechCountry" => ENV.fetch("NAMECHEAP_COUNTRY", "US"),
+      "TechPhone" => ENV.fetch("NAMECHEAP_PHONE", "+1.5555555555"),
+      "TechEmailAddress" => ENV.fetch("NAMECHEAP_EMAIL", "christian@gen.co"),
+      # Admin contact
+      "AdminFirstName" => ENV.fetch("NAMECHEAP_FIRST_NAME", "Christian"),
+      "AdminLastName" => ENV.fetch("NAMECHEAP_LAST_NAME", "Genco"),
+      "AdminAddress1" => ENV.fetch("NAMECHEAP_ADDRESS", "2028 E Ben White Blvd #240-8529"),
+      "AdminCity" => ENV.fetch("NAMECHEAP_CITY", "Austin"),
+      "AdminStateProvince" => ENV.fetch("NAMECHEAP_STATE", "TX"),
+      "AdminPostalCode" => ENV.fetch("NAMECHEAP_ZIP", "78741"),
+      "AdminCountry" => ENV.fetch("NAMECHEAP_COUNTRY", "US"),
+      "AdminPhone" => ENV.fetch("NAMECHEAP_PHONE", "+1.5555555555"),
+      "AdminEmailAddress" => ENV.fetch("NAMECHEAP_EMAIL", "christian@gen.co"),
+      # Aux billing contact
+      "AuxBillingFirstName" => ENV.fetch("NAMECHEAP_FIRST_NAME", "Christian"),
+      "AuxBillingLastName" => ENV.fetch("NAMECHEAP_LAST_NAME", "Genco"),
+      "AuxBillingAddress1" => ENV.fetch("NAMECHEAP_ADDRESS", "2028 E Ben White Blvd #240-8529"),
+      "AuxBillingCity" => ENV.fetch("NAMECHEAP_CITY", "Austin"),
+      "AuxBillingStateProvince" => ENV.fetch("NAMECHEAP_STATE", "TX"),
+      "AuxBillingPostalCode" => ENV.fetch("NAMECHEAP_ZIP", "78741"),
+      "AuxBillingCountry" => ENV.fetch("NAMECHEAP_COUNTRY", "US"),
+      "AuxBillingPhone" => ENV.fetch("NAMECHEAP_PHONE", "+1.5555555555"),
+      "AuxBillingEmailAddress" => ENV.fetch("NAMECHEAP_EMAIL", "christian@gen.co"),
+    }
+
+    doc = api_call("namecheap.domains.transfer.create", params)
+
+    result = doc.at_css("DomainTransferCreateResult")
+    {
+      domain: result["Domainname"],
+      transfer: result["Transfer"] == "true",
+      transfer_id: result["TransferID"],
+      status_id: result["StatusID"],
+      order_id: result["OrderID"],
+      transaction_id: result["TransactionID"],
+      charged: result["ChargedAmount"],
+      status_code: result["StatusCode"]
+    }
+  end
+
+  # Get the status of a particular transfer.
+  # Returns: { transfer_id:, status:, status_id: }
+  def transfer_get_status(transfer_id)
+    doc = api_call("namecheap.domains.transfer.getStatus", {
+      "TransferID" => transfer_id.to_s
+    })
+
+    result = doc.at_css("DomainTransferGetStatusResult")
+    {
+      transfer_id: result["TransferID"],
+      status: result["Status"],
+      status_id: result["StatusID"]
+    }
+  end
+
+  # List domain transfers.
+  # Options: page, page_size, list_type (ALL, INPROGRESS, CANCELLED, COMPLETED), search_term
+  # Returns: array of transfer records
+  def transfer_get_list(page: 1, page_size: 100, list_type: nil, search_term: nil)
+    params = {
+      "Page" => page.to_s,
+      "PageSize" => page_size.to_s
+    }
+    params["ListType"] = list_type if list_type
+    params["SearchTerm"] = search_term if search_term
+
+    doc = api_call("namecheap.domains.transfer.getList", params)
+
+    doc.css("TransferGetListResult Transfer").map do |node|
+      {
+        transfer_id: node["ID"],
+        domain: node["DomainName"],
+        user: node["User"],
+        transfer_date: node["TransferDate"],
+        order_id: node["OrderID"],
+        status_id: node["StatusID"],
+        status: node["Status"],
+        status_date: node["StatusDate"],
+        status_description: node["StatusDescription"]
+      }
+    end
+  end
+
   # Sets custom nameservers for a domain (e.g., for Cloudflare)
   def set_nameservers(domain, nameservers)
     parts = domain.split(".")
