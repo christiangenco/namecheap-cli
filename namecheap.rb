@@ -93,10 +93,20 @@ class Namecheap
 
   # Register a new domain.
   # Requires registrant contact info — uses defaults from Namecheap account profile.
-  def register(domain, years: 1)
+  # For premium domains, pass premium_price (from check_availability).
+  def register(domain, years: 1, premium_price: nil)
     parts = domain.split(".")
     sld = parts[0..-2].join(".")
     tld = parts[-1]
+
+    # Check if domain is premium and get price if not provided
+    if premium_price.nil?
+      availability = check_availability(domain)
+      info = availability.first
+      if info && info[:premium]
+        premium_price = info[:price]
+      end
+    end
 
     # Use WhoIsGuard and account defaults
     params = {
@@ -147,6 +157,12 @@ class Namecheap
       "AuxBillingEmailAddress" => ENV.fetch("NAMECHEAP_EMAIL", "christian@gen.co"),
     }
 
+    if premium_price
+      params["IsPremiumDomain"] = "true"
+      params["PremiumPrice"] = "%.2f" % premium_price.to_f
+      params["EapFee"] = "0.0"
+    end
+
     doc = api_call("namecheap.domains.create", params)
 
     result = doc.at_css("DomainCreateResult")
@@ -193,6 +209,9 @@ class Namecheap
     tld = parts[-1]
 
     params = { "SLD" => sld, "TLD" => tld }
+
+    has_mx = records.any? { |r| r[:type]&.upcase == "MX" }
+    params["EmailType"] = has_mx ? "mx" : "none"
 
     records.each_with_index do |record, i|
       n = i + 1

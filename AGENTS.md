@@ -34,3 +34,4 @@ namecheap-cli transfer:list INPROGRESS
 
 Requires `.env` with `NAMECHEAP_API_KEY`, `NAMECHEAP_USERNAME`. See `.env.example`.
 Your IP must be whitelisted at https://ap.www.namecheap.com/settings/tools/apiaccess/whitelisted-ips
+Add funds: https://ap.www.namecheap.com/profile/billing/Topup
